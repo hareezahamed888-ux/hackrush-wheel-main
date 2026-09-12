@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Records — HACKRUSH 2K26</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #040914;
@@ -26,7 +27,7 @@
     }
 
     .page {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -81,6 +82,33 @@
       color: var(--muted);
     }
 
+    .toggle-row {
+      display: flex;
+      gap: 8px;
+      padding: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      border: 1px solid rgba(63, 217, 255, 0.18);
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 10px 22px;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-btn.active {
+      background: linear-gradient(180deg, #b7fbff, #3fd9ff);
+      color: #012;
+      box-shadow: 0 0 18px rgba(63, 217, 255, 0.3);
+    }
+
     .table-wrap {
       overflow-x: auto;
     }
@@ -88,7 +116,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 700px;
+      min-width: 900px;
     }
 
     th, td {
@@ -120,6 +148,11 @@
       resize: vertical;
     }
 
+    .round-col {
+      background: rgba(63, 217, 255, 0.05);
+      border-left: 2px solid rgba(63, 217, 255, 0.25);
+    }
+
     .row-actions {
       display: flex;
       gap: 8px;
@@ -142,27 +175,34 @@
 <body>
   <div class="page">
     <div class="bar">
-      <h1>Admin Participant Records</h1>
+      <div>
+        <h1>Admin Participant Records</h1>
+        <div id="dbStatusBadge" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;margin-top:6px;padding:4px 12px;border-radius:999px;border:1px solid rgba(63,217,255,0.3);background:rgba(63,217,255,0.06);color:var(--muted);">
+          <span style="width:8px;height:8px;border-radius:50%;background:#ffd166;" id="dbStatusDot"></span>
+          <span id="dbStatusText">Checking database connection...</span>
+        </div>
+      </div>
       <div class="actions">
+        <button type="button" id="toggleRound2Btn" style="transition: all 0.2s ease;">Allow Round 2: OFF</button>
+        <button type="button" id="exportBtn" style="transition: all 0.2s ease;">Export to Sheets</button>
         <button type="button" id="refreshBtn">Refresh</button>
         <button type="button" id="backBtn">Back to Portal</button>
       </div>
     </div>
 
+    <!-- PARTICIPANT RECORDS -->
     <div class="card">
       <div class="controls">
-        <div><strong id="recordCount">0</strong> participant entries</div>
-        <div class="muted">You can edit the saved details manually here.</div>
+        <div><strong id="recordCount">0</strong> Participant entries</div>
+        <div class="muted">Edit saved details manually. Round 1 and Round 2 results are stored separately.</div>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Team Name</th>
-              <th>Team Leader</th>
-              <th>Wheel Result No.</th>
-              <th>Result Sentence</th>
-              <th>Saved At</th>
+              <th class="round-col">Problem Statement</th>
+              <th class="round-col">Hazard/Challenges</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -171,57 +211,41 @@
       </div>
     </div>
 
+    <!-- RESULT SENTENCE EDITORS -->
     <div class="card">
       <div class="controls">
         <div>Wheel Result Sentences</div>
-        <div class="muted">Edit the sentence shown for each wheel result number.</div>
+        <div class="toggle-row">
+          <button type="button" class="toggle-btn active" data-settings-id="1">Prob Statement</button>
+          <button type="button" class="toggle-btn" data-settings-id="2">Hazard/Challenges</button>
+        </div>
+        <div class="muted">Edit the sentence shown for each wheel result number. Round 1 and Round 2 have separate lists.</div>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Number</th>
-              <th>Result Sentence</th>
+              <th> Sentence</th>
             </tr>
           </thead>
           <tbody id="messagesBody"></tbody>
         </table>
       </div>
       <div class="actions" style="justify-content:flex-end; margin-top:16px;">
+        <button type="button" id="addMessageBtn">Add Sentence</button>
+        <button type="button" id="removeMessageBtn">Remove Last</button>
         <button type="button" id="saveMessagesBtn">Save Messages</button>
       </div>
       <div class="muted" id="saveStatus" style="margin-top:10px; font-size:13px;"></div>
     </div>
-
-    <div class="card">
-      <div class="controls">
-        <div>Local Database Access</div>
-        <div class="muted">View and edit the app storage used by the wheel and participant records.</div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Storage Key</th>
-              <th>Value</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="storageBody"></tbody>
-        </table>
-      </div>
-      <div class="actions" style="justify-content:flex-end; margin-top:16px;">
-        <button type="button" id="refreshStorageBtn">Refresh Storage</button>
-      </div>
-      <div class="muted" id="storageStatus" style="margin-top:10px; font-size:13px;"></div>
-    </div>
   </div>
 
   <script>
-    const PARTICIPANTS_KEY = 'Hackrush 2k26Participants';
-    const TEAM_KEY = 'Hackrush 2k26TeamName';
-    const LEADER_KEY = 'Hackrush 2k26TeamLeader';
-    const RESULT_MESSAGES_KEY = 'Hackrush 2k26WheelMessages';
+    const supabaseUrl = 'https://ifxdzscodonobkjjcjgj.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmeGR6c2NvZG9ub2JrampjamdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwNzc3MTcsImV4cCI6MjEwMTY1MzcxN30.OfOl1PW0MbyJO8J1CDcGIFUGqpe6bc2aibgrlk4ToHk';
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
     const DEFAULT_MESSAGES = [
       'Golden victory — your idea shines brightest.',
       'Power boost — your concept inspires the crowd.',
@@ -235,56 +259,138 @@
       'Champion mindset — you’re ready to win.'
     ];
 
+    // Separate message lists per round (app_settings id=1 and id=2)
+    const messageLists = {
+      1: [],
+      2: []
+    };
+    let currentSettingsId = 1;
+    let participants = [];
+
     const recordsBody = document.getElementById('recordsBody');
     const recordCount = document.getElementById('recordCount');
     const refreshBtn = document.getElementById('refreshBtn');
+    const exportBtn = document.getElementById('exportBtn');
     const backBtn = document.getElementById('backBtn');
     const messagesBody = document.getElementById('messagesBody');
+    const addMessageBtn = document.getElementById('addMessageBtn');
+    const removeMessageBtn = document.getElementById('removeMessageBtn');
     const saveMessagesBtn = document.getElementById('saveMessagesBtn');
     const saveStatus = document.getElementById('saveStatus');
-    const storageBody = document.getElementById('storageBody');
-    const refreshStorageBtn = document.getElementById('refreshStorageBtn');
-    const storageStatus = document.getElementById('storageStatus');
+    const toggleBtns = document.querySelectorAll('.toggle-btn[data-settings-id]');
 
-    const STORAGE_KEYS = [
-      PARTICIPANTS_KEY,
-      TEAM_KEY,
-      LEADER_KEY,
-      'Hackrush 2k26CurrentParticipantId',
-      'Hackrush 2k26WheelHasSpun',
-      'Hackrush 2k26WheelResult',
-      RESULT_MESSAGES_KEY
-    ];
+    const LOCAL_PARTICIPANTS_KEY = 'Hackrush 2k26LocalParticipants';
+    const dbStatusText = document.getElementById('dbStatusText');
+    const dbStatusDot = document.getElementById('dbStatusDot');
 
-    function getParticipants() {
+    function setDbStatus(isOnline, text) {
+      if (!dbStatusText || !dbStatusDot) return;
+      dbStatusText.textContent = text;
+      if (isOnline) {
+        dbStatusDot.style.background = '#8fecff';
+        dbStatusDot.style.boxShadow = '0 0 8px #8fecff';
+      } else {
+        dbStatusDot.style.background = '#ffd166';
+        dbStatusDot.style.boxShadow = '0 0 8px rgba(255,209,102,0.6)';
+      }
+    }
+
+    function getLocalParticipants() {
       try {
-        return JSON.parse(localStorage.getItem(PARTICIPANTS_KEY) || '[]');
-      } catch (error) {
+        const raw = localStorage.getItem(LOCAL_PARTICIPANTS_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
         return [];
       }
     }
 
-    function saveParticipants(entries) {
-      localStorage.setItem(PARTICIPANTS_KEY, JSON.stringify(entries));
-    }
-
-    function getResultMessages() {
+    function setLocalParticipants(list) {
       try {
-        const data = JSON.parse(localStorage.getItem(RESULT_MESSAGES_KEY));
-        if (Array.isArray(data) && data.length === 10) return data;
-      } catch (error) {
-        // ignore invalid data
+        localStorage.setItem(LOCAL_PARTICIPANTS_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn('Unable to save local participants', e);
       }
-      return [...DEFAULT_MESSAGES];
     }
 
-    function saveResultMessages(messages) {
-      localStorage.setItem(RESULT_MESSAGES_KEY, JSON.stringify(messages));
+    function withTimeout(promise, ms = 2500) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), ms))
+      ]);
+    }
+
+    async function fetchParticipants() {
+      recordsBody.innerHTML = '<tr><td colspan="8" class="empty">Loading...</td></tr>';
+      let loadedFromSupabase = false;
+
+      try {
+        const query = supabaseClient
+          .from('participants')
+          .select('*')
+          .order('submitted_at', { ascending: false });
+
+        const { data, error } = await withTimeout(query, 2500);
+
+        if (!error && data) {
+          participants = data;
+          loadedFromSupabase = true;
+          setDbStatus(true, `Cloud DB Connected (${participants.length} entries)`);
+        }
+      } catch (err) {
+        console.warn('Supabase fetch failed or paused, loading local storage:', err);
+      }
+
+      if (!loadedFromSupabase) {
+        participants = getLocalParticipants();
+        setDbStatus(false, `Local Mode (${participants.length} entries) — Cloud DB offline / paused`);
+      }
+      renderRecords();
+    }
+
+    async function fetchResultMessages(settingsId) {
+      // 1. Load from localStorage if present
+      try {
+        const localSentences = localStorage.getItem(`Hackrush 2k26Sentences_${settingsId}`);
+        if (localSentences) {
+          const parsed = JSON.parse(localSentences);
+          if (Array.isArray(parsed) && parsed.length >= 10) {
+            messageLists[settingsId] = parsed;
+          }
+        }
+      } catch (e) {}
+
+      if (messageLists[settingsId].length === 0) {
+        messageLists[settingsId] = [...DEFAULT_MESSAGES];
+      }
+
+      if (currentSettingsId === settingsId) {
+        renderResultMessages();
+      }
+
+      // 2. Try fetching latest from Supabase
+      try {
+        const query = supabaseClient
+          .from('app_settings')
+          .select('messages')
+          .eq('id', settingsId)
+          .single();
+
+        const { data, error } = await withTimeout(query, 2500);
+
+        if (!error && data && data.messages && Array.isArray(data.messages) && data.messages.length >= 10) {
+          messageLists[settingsId] = data.messages;
+          if (currentSettingsId === settingsId) {
+            renderResultMessages();
+          }
+        }
+      } catch (err) {
+        console.warn(`Supabase fetch failed for settings id=${settingsId}, keeping local list:`, err);
+      }
     }
 
     function renderResultMessages() {
-      const messages = getResultMessages();
-      messagesBody.innerHTML = messages.map((message, index) => `
+      const currentList = messageLists[currentSettingsId];
+      messagesBody.innerHTML = currentList.map((message, index) => `
         <tr>
           <td>${index + 1}</td>
           <td><textarea data-index="${index}">${message}</textarea></td>
@@ -292,119 +398,180 @@
       `).join('');
     }
 
-    function saveMessageEntries() {
-      const messages = [];
-      messagesBody.querySelectorAll('textarea').forEach((textarea, index) => {
-        messages[index] = textarea.value.trim() || DEFAULT_MESSAGES[index] || '';
-      });
-      saveResultMessages(messages);
-      saveStatus.textContent = 'Result sentences saved successfully.';
-      saveStatus.style.color = '#8fecff';
-      setTimeout(() => { saveStatus.textContent = ''; }, 2600);
+    addMessageBtn.addEventListener('click', () => {
+      syncCurrentMessagesFromUI();
+      if (messageLists[currentSettingsId].length >= 50) {
+        saveStatus.textContent = 'Maximum 50 sentences allowed.';
+        saveStatus.style.color = '#ff8b8b';
+        setTimeout(() => { saveStatus.textContent = ''; }, 2600);
+        return;
+      }
+      messageLists[currentSettingsId].push('New sentence...');
+      renderResultMessages();
+    });
 
+    removeMessageBtn.addEventListener('click', () => {
+      syncCurrentMessagesFromUI();
+      if (messageLists[currentSettingsId].length <= 10) {
+        saveStatus.textContent = 'Minimum 10 sentences required.';
+        saveStatus.style.color = '#ff8b8b';
+        setTimeout(() => { saveStatus.textContent = ''; }, 2600);
+        return;
+      }
+      messageLists[currentSettingsId].pop();
+      renderResultMessages();
+    });
+
+    function syncCurrentMessagesFromUI() {
+      messagesBody.querySelectorAll('textarea').forEach((textarea, index) => {
+        messageLists[currentSettingsId][index] = textarea.value.trim();
+      });
+    }
+
+    async function saveMessageEntries() {
+      syncCurrentMessagesFromUI();
+      saveStatus.textContent = 'Saving...';
+      saveStatus.style.color = 'inherit';
+
+      // 1. Save to local storage
+      try {
+        localStorage.setItem(`Hackrush 2k26Sentences_${currentSettingsId}`, JSON.stringify(messageLists[currentSettingsId]));
+      } catch (e) {
+        console.warn('Could not save sentences locally', e);
+      }
+
+      // 2. Try saving to Supabase
+      try {
+        const query = supabaseClient
+          .from('app_settings')
+          .upsert({ id: currentSettingsId, messages: messageLists[currentSettingsId] });
+        const { error } = await withTimeout(query, 2500);
+
+        if (error) throw error;
+        saveStatus.textContent = `Round ${currentSettingsId} result sentences saved (cloud & local).`;
+        saveStatus.style.color = '#8fecff';
+      } catch (err) {
+        saveStatus.textContent = `Round ${currentSettingsId} sentences saved locally (cloud offline).`;
+        saveStatus.style.color = '#8fecff';
+      }
+
+      setTimeout(() => { saveStatus.textContent = ''; }, 2600);
       renderResultMessages();
     }
 
-    function renderStorageTable() {
-      storageBody.innerHTML = STORAGE_KEYS.map((key) => {
-        const value = localStorage.getItem(key) || '';
-        return `
-          <tr>
-            <td>${key}</td>
-            <td><textarea data-key="${key}">${value}</textarea></td>
-            <td>
-              <div class="row-actions">
-                <button type="button" data-action="save-storage" data-key="${key}">Save</button>
-                <button type="button" data-action="clear-storage" data-key="${key}">Clear</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
+    function rawValue(field, index) {
+      const el = recordsBody.querySelector(`[data-field="${field}"][data-index="${index}"]`);
+      return el ? el.value : '';
     }
 
-    function saveStorageKey(key) {
-      const textarea = storageBody.querySelector(`textarea[data-key="${key}"]`);
-      if (!textarea) return;
-      const value = textarea.value;
-      if (value === '') {
-        localStorage.removeItem(key);
-      } else {
-        localStorage.setItem(key, value);
-      }
-      storageStatus.textContent = `${key} saved.`;
-      storageStatus.style.color = '#8fecff';
-      setTimeout(() => { storageStatus.textContent = ''; }, 2600);
-    }
-
-    function clearStorageKey(key) {
-      localStorage.removeItem(key);
-      renderStorageTable();
-      storageStatus.textContent = `${key} cleared.`;
-      storageStatus.style.color = '#ff8b8b';
-      setTimeout(() => { storageStatus.textContent = ''; }, 2600);
-    }
-
-    function handleStorageActions(event) {
-      const button = event.target.closest('button');
-      if (!button) return;
-      const action = button.dataset.action;
-      const key = button.dataset.key;
-      if (!action || !key) return;
-      if (action === 'save-storage') saveStorageKey(key);
-      if (action === 'clear-storage') clearStorageKey(key);
+    function hasKey(entry, key) {
+      return entry ? Object.prototype.hasOwnProperty.call(entry, key) : false;
     }
 
     function renderRecords() {
-      const entries = getParticipants();
-      recordCount.textContent = entries.length;
+      recordCount.textContent = participants.length;
 
-      if (!entries.length) {
-        recordsBody.innerHTML = '<tr><td colspan="6" class="empty">No participant records yet.</td></tr>';
+      if (!participants.length) {
+        recordsBody.innerHTML = '<tr><td colspan="4" class="empty">No participant records yet.</td></tr>';
         return;
       }
 
-      recordsBody.innerHTML = entries.map((entry, index) => `
-        <tr>
-          <td><input value="${entry.teamName || ''}" data-field="teamName" data-index="${index}" /></td>
-          <td><input value="${entry.teamLeader || ''}" data-field="teamLeader" data-index="${index}" /></td>
-          <td><input type="number" min="1" max="10" value="${entry.wheelResultNumber ?? ''}" data-field="wheelResultNumber" data-index="${index}" /></td>
-          <td><textarea data-field="resultSentence" data-index="${index}">${entry.resultSentence || ''}</textarea></td>
-          <td><textarea data-field="submittedAt" data-index="${index}">${entry.submittedAt || ''}</textarea></td>
-          <td>
-            <div class="row-actions">
-              <button type="button" data-action="save" data-index="${index}">Save</button>
-              <button type="button" data-action="delete" data-index="${index}">Delete</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      recordsBody.innerHTML = participants.map((entry, index) => {
+        // Determine which result columns exist on this row.
+        const hasR1 = hasKey(entry, 'wheel_result_1');
+        const hasR2 = hasKey(entry, 'wheel_result_2');
+        const hasSingle = hasKey(entry, 'wheel_result_number');
+
+        // Round 1 values: prefer per-round columns, fall back to the single-result columns.
+        const r1Sentence = hasR1 ? (entry.result_sentence_1 || '') : (hasSingle ? (entry.result_sentence || '') : '');
+        // Round 2 values: prefer per-round columns.
+        const r2Sentence = hasR2 ? (entry.result_sentence_2 || '') : '';
+
+        // Save/delete actions always go in the dedicated Actions column.
+        const actions = `<div class="row-actions">
+            <button type="button" data-action="save" data-index="${index}">Save</button>
+            <button type="button" data-action="delete" data-index="${index}">Delete</button>
+          </div>`;
+
+        return `<tr>
+          <td><input value="${entry.team_name || ''}" data-field="team_name" data-index="${index}" /></td>
+          <td class="round-col"><textarea data-field="${hasR1 ? 'result_sentence_1' : 'result_sentence'}" data-index="${index}">${r1Sentence}</textarea></td>
+          <td class="round-col"><textarea data-field="result_sentence_2" data-index="${index}">${r2Sentence}</textarea></td>
+          <td>${actions}</td>
+        </tr>`;
+      }).join('');
     }
 
-    function saveEntry(index) {
-      const entries = getParticipants();
-      const row = recordsBody.querySelector(`[data-index="${index}"]`);
-      if (!row) return;
+    async function saveEntry(index) {
+      const entry = participants[index];
+      const teamName = rawValue(`team_name`, index);
 
-      const teamName = recordsBody.querySelector(`[data-field="teamName"][data-index="${index}"]`).value.trim();
-      const teamLeader = recordsBody.querySelector(`[data-field="teamLeader"][data-index="${index}"]`).value.trim();
-      const wheelResultNumberRaw = recordsBody.querySelector(`[data-field="wheelResultNumber"][data-index="${index}"]`).value.trim();
-      const resultSentence = recordsBody.querySelector(`[data-field="resultSentence"][data-index="${index}"]`).value.trim();
-      const submittedAt = recordsBody.querySelector(`[data-field="submittedAt"][data-index="${index}"]`).value.trim();
+      if (!teamName) return;
 
-      if (!teamName || !teamLeader) return;
+      const payload = {
+        team_name: teamName
+      };
 
-      const wheelResultNumber = wheelResultNumberRaw === '' ? '' : Number(wheelResultNumberRaw);
-      entries[index] = { ...entries[index], teamName, teamLeader, wheelResultNumber: Number.isNaN(wheelResultNumber) ? '' : wheelResultNumber, resultSentence, submittedAt };
-      saveParticipants(entries);
+      // Only write columns that exist in the table (detect per-row).
+      const keys = Object.keys(entry || {});
+
+      if (keys.includes('wheel_result_1')) {
+        payload.result_sentence_1 = rawValue('result_sentence_1', index);
+      }
+      if (keys.includes('wheel_result_2')) {
+        payload.result_sentence_2 = rawValue('result_sentence_2', index);
+      }
+      if (keys.includes('wheel_result_number')) {
+        payload.result_sentence = rawValue('result_sentence', index);
+      }
+
+      // 1. Update in local storage
+      const localList = getLocalParticipants();
+      const localIdx = localList.findIndex(p => p.id === entry.id || (p.team_name === entry.team_name && p.team_leader === entry.team_leader));
+      if (localIdx >= 0) {
+        localList[localIdx] = { ...localList[localIdx], ...payload };
+        setLocalParticipants(localList);
+      }
+
+      participants[index] = { ...participants[index], ...payload };
+
+      // 2. Try remote database if valid remote ID
+      if (entry.id && !String(entry.id).startsWith('local_')) {
+        try {
+          await supabaseClient
+            .from('participants')
+            .update(payload)
+            .eq('id', entry.id);
+        } catch (err) {
+          console.warn('Could not update remote database, saved locally:', err);
+        }
+      }
+
       renderRecords();
+      alert('Entry saved successfully.');
     }
 
-    function deleteEntry(index) {
-      const entries = getParticipants();
-      entries.splice(index, 1);
-      saveParticipants(entries);
-      renderRecords();
+    async function deleteEntry(index) {
+      if(!confirm("Are you sure you want to delete this entry?")) return;
+      const entry = participants[index];
+
+      // 1. Delete from local storage
+      const localList = getLocalParticipants().filter(p => p.id !== entry.id);
+      setLocalParticipants(localList);
+
+      // 2. Delete from remote database
+      if (entry.id && !String(entry.id).startsWith('local_')) {
+        try {
+          await supabaseClient
+            .from('participants')
+            .delete()
+            .eq('id', entry.id);
+        } catch (err) {
+          console.warn('Could not delete from remote database:', err);
+        }
+      }
+
+      fetchParticipants();
     }
 
     recordsBody.addEventListener('click', (event) => {
@@ -416,21 +583,147 @@
       if (button.dataset.action === 'delete') deleteEntry(index);
     });
 
-    refreshBtn.addEventListener('click', () => {
-      renderRecords();
-      renderResultMessages();
-      renderStorageTable();
-    });
-    saveMessagesBtn.addEventListener('click', saveMessageEntries);
-    refreshStorageBtn.addEventListener('click', renderStorageTable);
-    storageBody.addEventListener('click', handleStorageActions);
-    backBtn.addEventListener('click', () => {
-      window.location.href = 'start.html';
+    toggleBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentSettingsId = Number(btn.dataset.settingsId);
+        toggleBtns.forEach((b) => {
+          b.classList.toggle('active', b === btn);
+        });
+        // Load the list for this settings id if not already loaded
+        if (messageLists[currentSettingsId].length === 0) {
+          fetchResultMessages(currentSettingsId);
+        } else {
+          renderResultMessages();
+        }
+      });
     });
 
-    renderRecords();
-    renderResultMessages();
-    renderStorageTable();
+    let round2Allowed = false;
+    const toggleRound2Btn = document.getElementById('toggleRound2Btn');
+
+    async function fetchRound2Access() {
+      round2Allowed = localStorage.getItem('Hackrush 2k26Round2Allowed') === 'true';
+      updateRound2ButtonUI();
+
+      try {
+        const query = supabaseClient
+          .from('app_settings')
+          .select('messages')
+          .eq('id', 3)
+          .single();
+        const { data, error } = await withTimeout(query, 2500);
+
+        if (!error && data && data.messages && data.messages[0] === 'true') {
+          round2Allowed = true;
+          updateRound2ButtonUI();
+        }
+      } catch (err) {}
+    }
+
+    function updateRound2ButtonUI() {
+      if (round2Allowed) {
+        toggleRound2Btn.textContent = 'Allow Round 2: ON';
+        toggleRound2Btn.style.background = 'linear-gradient(180deg, #b7fbff, #3fd9ff)';
+        toggleRound2Btn.style.color = '#012';
+        toggleRound2Btn.style.border = 'none';
+        toggleRound2Btn.style.boxShadow = '0 0 16px rgba(63, 217, 255, 0.25)';
+      } else {
+        toggleRound2Btn.textContent = 'Allow Round 2: OFF';
+        toggleRound2Btn.style.background = 'transparent';
+        toggleRound2Btn.style.color = 'var(--muted)';
+        toggleRound2Btn.style.border = '1px solid var(--border)';
+        toggleRound2Btn.style.boxShadow = 'none';
+      }
+    }
+
+    toggleRound2Btn.addEventListener('click', async () => {
+      const nextState = !round2Allowed;
+      toggleRound2Btn.disabled = true;
+      toggleRound2Btn.textContent = 'Updating...';
+
+      // Save locally first
+      round2Allowed = nextState;
+      localStorage.setItem('Hackrush 2k26Round2Allowed', nextState ? 'true' : 'false');
+      updateRound2ButtonUI();
+      toggleRound2Btn.disabled = false;
+
+      // Try Supabase sync
+      try {
+        const query = supabaseClient
+          .from('app_settings')
+          .upsert({ id: 3, messages: [nextState ? 'true' : 'false'] });
+        await withTimeout(query, 2500);
+      } catch (err) {
+        console.warn('Round 2 state saved locally (cloud offline):', err);
+      }
+    });
+
+    function exportToCSV() {
+      if (!participants || participants.length === 0) {
+        alert("No participant records available to export.");
+        return;
+      }
+
+      // Headers: Team Name, Problem Statement, Challenges/Hazards
+      const headers = ["Team Name", "Problem Statement", "Challenges/Hazards"];
+      
+      const rows = participants.map(entry => {
+        const teamName = entry.team_name || '';
+        
+        // Determine which result columns exist on this row (consistent with renderRecords logic)
+        const hasR1 = hasKey(entry, 'wheel_result_1');
+        const hasR2 = hasKey(entry, 'wheel_result_2');
+        const hasSingle = hasKey(entry, 'wheel_result_number');
+
+        const problemStatement = hasR1 ? (entry.result_sentence_1 || '') : (hasSingle ? (entry.result_sentence || '') : '');
+        const challengesHazards = hasR2 ? (entry.result_sentence_2 || '') : '';
+
+        const escapeCSV = (val) => {
+          const stringified = String(val);
+          if (stringified.includes(',') || stringified.includes('"') || stringified.includes('\n') || stringified.includes('\r')) {
+            return `"${stringified.replace(/"/g, '""')}"`;
+          }
+          return stringified;
+        };
+
+        return [
+          escapeCSV(teamName),
+          escapeCSV(problemStatement),
+          escapeCSV(challengesHazards)
+        ].join(',');
+      });
+
+      // Add UTF-8 BOM for Excel/Google Sheets compatibility
+      const csvContent = "\ufeff" + [headers.join(','), ...rows].join('\r\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "participants_records.csv");
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    exportBtn.addEventListener('click', exportToCSV);
+
+    refreshBtn.addEventListener('click', () => {
+      fetchParticipants();
+      fetchResultMessages(1);
+      fetchResultMessages(2);
+      fetchRound2Access();
+    });
+    saveMessagesBtn.addEventListener('click', saveMessageEntries);
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+
+    fetchParticipants();
+    fetchResultMessages(1);
+    fetchResultMessages(2);
+    fetchRound2Access();
   </script>
 </body>
 </html>

@@ -1,439 +1,1486 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Welcome — HACKRUSH 2K26</title>
-  <style>
-    :root {
-      --bg: #040914;
-      --panel: rgba(10, 23, 41, 0.92);
-      --border: rgba(63, 217, 255, 0.35);
-      --text: #eaf5ff;
-      --muted: #7f9cc4;
-      --accent: #3fd9ff;
-      --accent-soft: #8fecff;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HACKRUSH 2K26 — Precision Draw System</title>
+<script>
+  const CURRENT_PARTICIPANT_KEY = 'Hackrush 2k26CurrentParticipantId';
+  let participantId = null;
+  try {
+    participantId = localStorage.getItem(CURRENT_PARTICIPANT_KEY);
+  } catch(e) {
+    console.warn('localStorage not accessible', e);
+  }
+  // This IS start.html (the wheel page). Only redirect if no participant registered.
+  // Don't redirect — let the wheel load regardless so it doesn't get stuck in a loop.
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#040914;
+    --bg-1:#081326;
+    --bg-2:#0c1c38;
+    --bg-panel:#0a1729;
+    --neon:#3fd9ff;
+    --neon-soft:#8fecff;
+    --neon-deep:#0090c7;
+    --neon-dim:rgba(63,217,255,0.16);
+    --gold:#ffd166;
+    --violet:#7c8fff;
+    --text:#eaf5ff;
+    --text-dim:#7f9cc4;
+    --text-faint:#4d6690;
+    --line:rgba(143,236,255,0.14);
+    --font-display:'Sora', 'Space Grotesk', system-ui, sans-serif;
+    --font-body:'Space Grotesk', system-ui, sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 18% 10%, rgba(63,217,255,0.10), transparent 42%),
+      radial-gradient(circle at 84% 78%, rgba(124,143,255,0.08), transparent 48%),
+      radial-gradient(circle at 50% 100%, rgba(63,217,255,0.06), transparent 55%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1) 55%, var(--bg-0));
+    font-family: var(--font-body);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    overflow-x:hidden;
+    position:relative;
+  }
 
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Segoe UI, system-ui, -apple-system, sans-serif;
-      background: linear-gradient(135deg, #040914 0%, #071423 100%);
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
+  /* faint grid backdrop */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(63,217,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(63,217,255,0.035) 1px, transparent 1px);
+    background-size:42px 42px;
+    pointer-events:none;
+    z-index:0;
+  }
 
-    .page-shell {
-      width: 100%;
-      max-width: 780px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
+  /* animated background layer */
+  .bg-structures{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    overflow:hidden;
+    pointer-events:none;
+  }
 
-    .hero {
-      text-align: center;
-    }
+  .drift-ring{
+    position:absolute;
+    border-radius:50%;
+    border:1.5px solid rgba(63,217,255,0.25);
+    box-shadow:0 0 24px rgba(63,217,255,0.12), inset 0 0 24px rgba(63,217,255,0.08);
+  }
+  .drift-ring.r1{ width:260px; height:260px; top:8%; left:6%; animation: floatA 22s ease-in-out infinite, spin 40s linear infinite; }
+  .drift-ring.r2{ width:180px; height:180px; top:62%; left:82%; animation: floatB 26s ease-in-out infinite, spin 55s linear infinite reverse; }
+  .drift-ring.r3{ width:340px; height:340px; top:70%; left:-4%; animation: floatC 30s ease-in-out infinite, spin 70s linear infinite; }
+  .drift-ring.r4{ width:130px; height:130px; top:4%; left:80%; animation: floatA 18s ease-in-out infinite reverse, spin 33s linear infinite; }
 
-    .hero h1 {
-      margin: 0 0 10px;
-      font-size: clamp(28px, 4vw, 40px);
-      letter-spacing: -0.03em;
-    }
+  .drift-hex{
+    position:absolute;
+    width:90px;
+    height:90px;
+    border:1.5px solid rgba(124,232,255,0.3);
+    clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%);
+    box-shadow:0 0 18px rgba(63,217,255,0.15);
+  }
+  .drift-hex.h1{ top:20%; left:88%; animation: floatB 20s ease-in-out infinite, spin 45s linear infinite; }
+  .drift-hex.h2{ top:82%; left:14%; animation: floatC 24s ease-in-out infinite, spin 38s linear infinite reverse; }
+  .drift-hex.h3{ width:56px; height:56px; top:46%; left:4%; animation: floatA 16s ease-in-out infinite, spin 28s linear infinite; }
 
-    .hero p {
-      margin: 0 auto;
-      max-width: 700px;
-      color: var(--muted);
-      line-height: 1.6;
-    }
+  .drift-line{
+    position:absolute;
+    background:linear-gradient(90deg, transparent, rgba(63,217,255,0.35), transparent);
+    height:1px;
+  }
+  .drift-line.l1{ width:220px; top:30%; left:10%; animation: floatB 14s ease-in-out infinite; }
+  .drift-line.l2{ width:160px; top:75%; left:60%; animation: floatC 17s ease-in-out infinite; }
+  .drift-line.l3{ width:280px; top:15%; left:55%; animation: floatA 19s ease-in-out infinite; }
 
-    .card {
-      background: var(--panel);
-      padding: 28px;
-      border-radius: 22px;
-      border: 1px solid var(--border);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
+  .drift-dot{
+    position:absolute;
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:var(--neon-soft);
+    box-shadow:0 0 10px 3px rgba(124,232,255,0.7);
+    animation: floatDot linear infinite;
+  }
 
-    .card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 22px;
-      padding: 1px;
-      background: linear-gradient(135deg, rgba(63, 217, 255, 0.8), rgba(124, 143, 255, 0.4), rgba(63, 217, 255, 0.8));
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask-composite: exclude;
-      pointer-events: none;
-    }
+  @keyframes spin{
+    to{ transform:rotate(360deg); }
+  }
+  @keyframes floatA{
+    0%,100%{ transform:translate(0,0); }
+    50%{ transform:translate(24px,-30px); }
+  }
+  @keyframes floatB{
+    0%,100%{ transform:translate(0,0); }
+    50%{ transform:translate(-28px,22px); }
+  }
+  @keyframes floatC{
+    0%,100%{ transform:translate(0,0); }
+    50%{ transform:translate(20px,26px); }
+  }
+  @keyframes floatDot{
+    0%{ transform:translateY(0) translateX(0); opacity:0; }
+    10%{ opacity:0.9; }
+    90%{ opacity:0.9; }
+    100%{ transform:translateY(-120vh) translateX(40px); opacity:0; }
+  }
 
-    .toggle-row {
-      display: flex;
-      gap: 10px;
-      padding: 6px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 999px;
-      border: 1px solid rgba(63, 217, 255, 0.18);
-    }
+  .topbar{
+    position:relative;
+    z-index:2;
+    width:100%;
+    max-width:1180px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:28px 32px 0;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.02em;
+  }
+  .brand-mark{
+    width:26px;
+    height:26px;
+    border-radius:8px;
+    border:1.5px solid var(--neon);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 0 12px rgba(63,217,255,0.5), inset 0 0 8px rgba(63,217,255,0.3);
+    position:relative;
+  }
+  .brand-mark::before{
+    content:"";
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--neon-soft);
+    box-shadow:0 0 8px 2px rgba(143,236,255,0.9);
+  }
+  .brand small{
+    display:block;
+    font-family:var(--font-mono);
+    font-weight:400;
+    font-size:9px;
+    letter-spacing:0.2em;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    margin-top:1px;
+  }
+  .topbar-tag{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--text-dim);
+    border:1px solid var(--line);
+    padding:6px 12px;
+    border-radius:999px;
+    background:rgba(63,217,255,0.04);
+  }
 
-    .toggle-btn {
-      flex: 1;
-      padding: 12px 16px;
-      border: none;
-      border-radius: 999px;
-      background: transparent;
-      color: var(--muted);
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
+  header{
+    text-align:center;
+    padding:40px 20px 8px;
+    z-index:1;
+    position:relative;
+  }
+  .eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    letter-spacing:0.32em;
+    font-family:var(--font-mono);
+    font-size:20px;
+    color:var(--neon-soft);
+    text-transform:uppercase;
+    margin-bottom:18px;
+    opacity:0.9;
+    padding:6px 14px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:rgba(63,217,255,0.05);
+  }
+  .eyebrow::before{
+    content:"";
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:var(--gold);
+    box-shadow:0 0 8px 2px rgba(255,209,102,0.8);
+  }
+  h1{
+    font-family:var(--font-display);
+    font-size:clamp(32px,5.4vw,54px);
+    margin:0;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    text-shadow:0 0 24px rgba(63,217,255,0.35);
+  }
+  h1 span{
+    background:linear-gradient(120deg, var(--neon-soft), var(--neon) 55%, var(--violet));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .subtitle{
+    color:var(--text-dim);
+    margin:16px auto 0;
+    font-size:15px;
+    line-height:1.6;
+    max-width:460px;
+  }
 
-    .toggle-btn.active {
-      background: linear-gradient(180deg, #b7fbff, #3fd9ff);
-      color: #012;
-      box-shadow: 0 0 18px rgba(63, 217, 255, 0.3);
-    }
+  main{
+    position:relative;
+    z-index:1;
+    display:flex;
+    justify-content:center;
+    padding:24px 20px 80px;
+    width:100%;
+  }
 
-    .view {
-      display: none;
-    }
+.stage-panel{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    gap:28px;
+    width:100%;
+    max-width:980px;
+    padding:40px clamp(24px,5vw,64px);
+    border-radius:28px;
+    background:linear-gradient(180deg, rgba(12,28,56,0.55), rgba(6,14,28,0.55));
+    border:1px solid var(--line);
+    box-shadow:
+      0 0 0 1px rgba(63,217,255,0.05),
+      0 30px 80px -30px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.03);
+    backdrop-filter:blur(6px);
+  }
+  .stage-panel::before{
+    content:"";
+    position:absolute;
+    top:0; left:24px; right:24px;
+    height:1px;
+    background:linear-gradient(90deg, transparent, rgba(63,217,255,0.55), transparent);
+  }
 
-    .view.active {
-      display: block;
-    }
+  /* Round toggle panel */
+  .round-toggle{
+    display:flex;
+    gap:10px;
+    padding:7px;
+    width:100%;
+    max-width:420px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--line);
+  }
+  .round-btn{
+    flex:1;
+    padding:12px 14px;
+    border-radius:999px;
+    border:none;
+    background:transparent;
+    color:var(--text-dim);
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:all 0.2s ease;
+  }
+  .round-btn.active{
+    background:linear-gradient(180deg, var(--neon-soft), var(--neon));
+    color:var(--bg-0);
+    box-shadow:0 0 20px rgba(63,217,255,0.45);
+  }
+  .round-tag{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.16em;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    margin-top:-6px;
+  }
 
-    .view h2 {
-      margin: 0 0 8px;
-      font-size: 24px;
-    }
+  .stage-legend{
+    display:flex;
+    flex-direction:row;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:26px 40px;
+    width:100%;
+    max-width:none;
+  }
+  .legend-item{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding-left:14px;
+    border-left:2px solid var(--line);
+  }
+  .legend-item .li-label{
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+  }
+  .legend-item .li-value{
+    font-family:var(--font-display);
+    font-size:15px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .legend-item.active{
+    border-left-color:var(--neon);
+  }
+  .legend-item.active .li-value{
+    color:var(--neon-soft);
+  }
 
-    .view p {
-      margin: 0 0 20px;
-      color: var(--muted);
-      line-height: 1.6;
-    }
+  .round-view{
+    display:none;
+    width:100%;
+    justify-content:center;
+  }
+  .round-view.active{
+    display:flex;
+  }
 
-    form {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      width: 100%;
-    }
+.wheel-col{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
 
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      font-size: 12px;
-      color: #9fbcd9;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-    }
+  .wheel-stage{
+    position:relative;
+    width:min(400px,80vw);
+    height:min(400px,80vw);
+    margin-top:4px;
+  }
 
-    input {
-      width: 100%;
-      padding: 14px;
-      border-radius: 14px;
-      border: 1px solid rgba(63, 217, 255, 0.35);
-      background: rgba(255, 255, 255, 0.06);
-      color: inherit;
-      font-size: 15px;
-      box-shadow: 0 0 14px rgba(63, 217, 255, 0.12);
-      transition: box-shadow 0.2s ease, border-color 0.2s ease;
-    }
+  /* outer glow ring */
+  .glow-ring{
+    position:absolute;
+    inset:-14px;
+    border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(63,217,255,0.0), rgba(63,217,255,0.4), rgba(124,143,255,0.25), rgba(63,217,255,0.0) 60%);
+    filter:blur(11px);
+    animation:rotateGlow 7s linear infinite;
+    z-index:0;
+  }
+  @keyframes rotateGlow{
+    to{ transform:rotate(360deg); }
+  }
 
-    input:focus {
-      outline: none;
-      border-color: var(--accent-soft);
-      box-shadow: 0 0 24px rgba(63, 217, 255, 0.25);
-    }
+  .pointer{
+    position:absolute;
+    top:-20px;
+    left:50%;
+    transform:translateX(-50%);
+    width:0;
+    height:0;
+    border-left:15px solid transparent;
+    border-right:15px solid transparent;
+    border-top:26px solid var(--gold);
+    filter:drop-shadow(0 0 10px rgba(255,209,102,0.9));
+    z-index:5;
+  }
+  .pointer::after{
+    content:"";
+    position:absolute;
+    top:-30px;
+    left:-2px;
+    width:4px;
+    height:10px;
+    background:var(--gold);
+    border-radius:2px;
+    box-shadow:0 0 8px rgba(255,209,102,0.8);
+  }
 
-    button {
-      display: block;
-      margin-top: 8px;
-      padding: 14px 20px;
-      border-radius: 999px;
-      border: none;
-      background: linear-gradient(180deg, #b7fbff, #3fd9ff);
-      color: #012;
-      font-weight: 800;
-      cursor: pointer;
-      min-width: 160px;
-      text-align: center;
-      box-shadow: 0 0 18px rgba(63, 217, 255, 0.35);
-    }
+  .wheel-frame{
+    position:relative;
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    padding:10px;
+    background:
+      radial-gradient(circle at 50% 50%, var(--bg-2), var(--bg-0) 85%);
+    box-shadow:
+      0 0 0 2px rgba(63,217,255,0.5),
+      0 0 0 6px rgba(4,9,20,0.9),
+      0 0 34px rgba(63,217,255,0.32),
+      0 0 80px rgba(63,217,255,0.13),
+      inset 0 0 40px rgba(0,0,0,0.6);
+    z-index:1;
+  }
+  .wheel-frame::before{
+    content:"";
+    position:absolute;
+    inset:-1px;
+    border-radius:50%;
+    border:1px dashed rgba(143,236,255,0.18);
+    pointer-events:none;
+  }
 
-    .hint {
-      min-height: 18px;
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: 6px;
-      line-height: 1.5;
-    }
+  .wheel-canvas{
+    display:block;
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    transition: transform 5.5s cubic-bezier(0.12, 0.71, 0.11, 1.0);
+    filter: drop-shadow(0 0 14px rgba(63,217,255,0.25));
+  }
 
-    .hint.success { color: #8fecff; }
-    .hint.error { color: #ff8b8b; }
+  .hub{
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:64px;
+    height:64px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #123a5c, #061323 75%);
+    border:2px solid var(--neon);
+    box-shadow:0 0 18px rgba(63,217,255,0.8), inset 0 0 12px rgba(63,217,255,0.4);
+    z-index:4;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:opacity 0.3s ease, transform 0.3s ease;
+  }
+  .hub::after{
+    content:"";
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    background:var(--neon-soft);
+    box-shadow:0 0 10px 3px rgba(124,232,255,0.9);
+  }
+  .hub.hidden{
+    opacity:0;
+    transform:translate(-50%,-50%) scale(0.4);
+    pointer-events:none;
+  }
+   . border-radius:999px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--line);
+  }
+  .round-btn{
+    flex:1;
+    padding:12px 14px;
+    border-radius:999px;
+    border:none;
+    background:transparent;
+    color:var(--text-dim);
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:all 0.2s ease;
+  }
+  .round-btn.active{
+    background:linear-gradient(180deg, var(--neon-soft), var(--neon));
+    color:var(--bg-0);
+    box-shadow:0 0 20px rgba(63,217,255,0.45);
+  }
+  .round-tag{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.16em;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    margin-top:-6px;
+  }
 
-    .admin-panel {
-      display: none;
-      margin-top: 18px;
-      gap: 12px;
-      flex-direction: column;
-    }
+  .stage-legend{
+    display:flex;
+    flex-direction:row;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:26px 40px;
+    width:100%;
+    max-width:none;
+  }
+  .legend-item{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding-left:14px;
+    border-left:2px solid var(--line);
+  }
+  .legend-item .li-label{
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+  }
+  .legend-item .li-value{
+    font-family:var(--font-display);
+    font-size:15px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .legend-item.active{
+    border-left-color:var(--neon);
+  }
+  .legend-item.active .li-value{
+    color:var(--neon-soft);
+  }
 
-    .admin-panel.active {
-      display: flex;
-    }
+  .round-view{
+    display:none;
+    width:100%;
+    justify-content:center;
+  }
+  .round-view.active{
+    display:flex;
+  }
 
-    .summary-box,
-    .record-item {
-      background: rgba(63, 217, 255, 0.08);
-      border: 1px solid rgba(63, 217, 255, 0.16);
-      border-radius: 16px;
-      padding: 14px;
-    }
+.wheel-col{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
 
-    .summary-box strong {
-      color: var(--accent-soft);
-    }
+  .wheel-stage{
+    position:relative;
+    width:min(400px,80vw);
+    height:min(400px,80vw);
+    margin-top:4px;
+  }
 
-    .record-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      max-height: 240px;
-      overflow: auto;
-      padding-right: 4px;
-    }
+  /* outer glow ring */
+  .glow-ring{
+    position:absolute;
+    inset:-14px;
+    border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(63,217,255,0.0), rgba(63,217,255,0.4), rgba(124,143,255,0.25), rgba(63,217,255,0.0) 60%);
+    filter:blur(11px);
+    animation:rotateGlow 7s linear infinite;
+    z-index:0;
+  }
+  @keyframes rotateGlow{
+    to{ transform:rotate(360deg); }
+  }
 
-    .record-item h4 {
-      margin: 0 0 6px;
-      font-size: 14px;
-      color: var(--accent-soft);
-    }
+  .pointer{
+    position:absolute;
+    top:-20px;
+    left:50%;
+    transform:translateX(-50%);
+    width:0;
+    height:0;
+    border-left:15px solid transparent;
+    border-right:15px solid transparent;
+    border-top:26px solid var(--gold);
+    filter:drop-shadow(0 0 10px rgba(255,209,102,0.9));
+    z-index:5;
+  }
+  .pointer::after{
+    content:"";
+    position:absolute;
+    top:-30px;
+    left:-2px;
+    width:4px;
+    height:10px;
+    background:var(--gold);
+    border-radius:2px;
+    box-shadow:0 0 8px rgba(255,209,102,0.8);
+  }
 
-    .record-item p {
-      margin: 0;
-      color: var(--text);
-      font-size: 14px;
-      line-height: 1.5;
-    }
+  .wheel-frame{
+    position:relative;
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    padding:10px;
+    background:
+      radial-gradient(circle at 50% 50%, var(--bg-2), var(--bg-0) 85%);
+    box-shadow:
+      0 0 0 2px rgba(63,217,255,0.5),
+      0 0 0 6px rgba(4,9,20,0.9),
+      0 0 34px rgba(63,217,255,0.32),
+      0 0 80px rgba(63,217,255,0.13),
+      inset 0 0 40px rgba(0,0,0,0.6);
+    z-index:1;
+  }
+  .wheel-frame::before{
+    content:"";
+    position:absolute;
+    inset:-1px;
+    border-radius:50%;
+    border:1px dashed rgba(143,236,255,0.18);
+    pointer-events:none;
+  }
 
-    .record-empty {
-      text-align: center;
-      color: var(--muted);
-      padding: 16px 0;
-    }
+  .wheel-canvas{
+    display:block;
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    transition: transform 5.5s cubic-bezier(0.12, 0.71, 0.11, 1.0);
+    filter: drop-shadow(0 0 14px rgba(63,217,255,0.25));
+  }
 
-    @media (max-width: 480px) {
-      body { padding: 16px; }
-      .card { padding: 22px; }
-      button { width: 100%; min-width: 0; }
+  .hub{
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:64px;
+    height:64px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #123a5c, #061323 75%);
+    border:2px solid var(--neon);
+    box-shadow:0 0 18px rgba(63,217,255,0.8), inset 0 0 12px rgba(63,217,255,0.4);
+    z-index:4;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:opacity 0.3s ease, transform 0.3s ease;
+  }
+  .hub::after{
+    content:"";
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    background:var(--neon-soft);
+    box-shadow:0 0 10px 3px rgba(124,232,255,0.9);
+  }
+  .hub.hidden{
+    opacity:0;
+    transform:translate(-50%,-50%) scale(0.4);
+    pointer-events:none;
+  }
+
+  /* selected result shown at the center of the wheel */
+  .center-result{
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:100%;
+    max-width:650px;
+    min-width:260px;
+    min-height:0;
+    transform:translate(-50%,-50%) scale(0.5);
+    border-radius:16px;
+    background:linear-gradient(145deg, #123a5c, #050d1c 80%);
+    border:2px solid var(--neon);
+    box-shadow:0 0 26px rgba(63,217,255,0.85), inset 0 0 18px rgba(63,217,255,0.35);
+    z-index:6;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:20px 24px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.45s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .center-result.show{
+    opacity:1;
+    transform:translate(-50%,-50%) scale(1);
+  }
+  .center-result .cr-label{
+    display:none;
+  }
+  .center-result .cr-number{
+    font-family:var(--font-display);
+    font-size:clamp(32px, 5.5vw, 52px);
+    font-weight:800;
+    color:var(--neon-soft);
+    line-height:1;
+    text-align:center;
+    white-space:nowrap;
+    text-shadow:0 0 18px rgba(63,217,255,0.85), 0 0 44px rgba(63,217,255,0.4);
+    margin-bottom:2px;
+  }
+  .center-result .cr-text{
+    font-family:var(--font-body);
+    font-size:clamp(12px, 1.8vw, 16px);
+    color:var(--text);
+    text-align:center;
+    line-height:1.45;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    white-space:normal;
+    max-width:100%;
+  }
+
+  .controls{
+    margin-top:44px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+  }
+
+  .spin-btn{
+    position:relative;
+    padding:17px 52px;
+    font-family:var(--font-display);
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--bg-0);
+    background:linear-gradient(180deg, var(--neon-soft), var(--neon));
+    border:none;
+    border-radius:999px;
+    cursor:pointer;
+    box-shadow:0 0 24px rgba(63,217,255,0.5), 0 6px 0 rgba(0,120,160,0.55), inset 0 1px 0 rgba(255,255,255,0.4);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .spin-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 0 32px rgba(63,217,255,0.7), 0 8px 0 rgba(0,120,160,0.55), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .spin-btn:active{
+    transform:translateY(2px);
+    box-shadow:0 0 16px rgba(63,217,255,0.5), 0 2px 0 rgba(0,120,160,0.55);
+  }
+  .spin-btn:disabled{
+    opacity:0.5;
+    cursor:not-allowed;
+    transform:none;
+  }
+
+  .spin-hint{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-dim);
+    letter-spacing:0.05em;
+    opacity:0.75;
+  }
+  .spin-hint.used{
+    color:var(--gold);
+    opacity:0.95;
+  }
+
+  footer{
+    z-index:1;
+    padding:26px 20px 40px;
+    color:var(--text-faint);
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-align:center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+  }
+  footer .dot{
+    width:4px; height:4px; border-radius:50%;
+    background:var(--text-faint);
+  }
+
+  @media (max-width: 760px){
+    .stage-panel{
+      flex-direction:column;
+      gap:28px;
+      padding:28px 20px 40px;
     }
-  </style>
+    .stage-legend{
+      flex-direction:row;
+      flex-wrap:wrap;
+      justify-content:center;
+      width:100%;
+      max-width:none;
+      gap:16px 18px;
+    }
+    .legend-item{
+      padding-left:10px;
+      flex:1 1 46%;
+      min-width:150px;
+    }
+    .wheel-stage{
+      width:min(340px,90vw);
+      height:min(340px,90vw);
+    }
+    .topbar{
+      flex-direction:column;
+      align-items:center;
+      gap:16px;
+      padding:22px 20px 0;
+    }
+    .topbar-tag{
+      display:none;
+    }
+    header{
+      padding:32px 20px 8px;
+    }
+    .eyebrow{font-size:16px;letter-spacing:0.24em;padding:8px 12px;}
+    h1{font-size:clamp(28px,9vw,46px);}
+    .subtitle{font-size:14px;max-width:320px;}
+    .controls{margin-top:28px;}
+    .spin-btn{width:100%;max-width:280px;padding:16px 0;}
+    .spin-hint{font-size:12px;max-width:280px;}
+  }
+
+  @media (max-width: 480px){
+    .stage-panel{padding:24px 16px 36px;}
+    .stage-legend{gap:12px 14px;}
+    .wheel-stage{width:min(300px,90vw);height:min(300px,90vw);}
+    h1{font-size:clamp(26px,10vw,40px);}
+    .subtitle{max-width:260px;}
+    .spin-btn{max-width:100%;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .glow-ring{ animation:none; }
+    .wheel-canvas{ transition:none; }
+  }
+</style>
 </head>
 <body>
-  <div class="page-shell">
-    <header class="hero">
-      <h1>HACKRUSH 2K26 Portals</h1>
-      <p>Choose the participant portal to enter your team details and continue to the wheel, or use the admin portal to review participant entries stored locally in this browser.</p>
-    </header>
 
-    <div class="card">
-      <div class="toggle-row" role="tablist" aria-label="Portal switcher">
-        <button type="button" class="toggle-btn active" data-view="participant">Participant Portal</button>
-        <button type="button" class="toggle-btn" data-view="admin">Admin Portal</button>
+<div class="bg-structures" id="bgStructures">
+  <div class="drift-ring r1"></div>
+  <div class="drift-ring r2"></div>
+  <div class="drift-ring r3"></div>
+  <div class="drift-ring r4"></div>
+  <div class="drift-hex h1"></div>
+  <div class="drift-hex h2"></div>
+  <div class="drift-hex h3"></div>
+  <div class="drift-line l1"></div>
+  <div class="drift-line l2"></div>
+  <div class="drift-line l3"></div>
+</div>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span>JEPPIAAR ENGINEERING COLLEGE <small>CHENNAI-600119</small></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="index.html" style="text-decoration:none;font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;color:var(--neon-soft);border:1px solid var(--line);padding:6px 14px;border-radius:999px;background:rgba(63,217,255,0.05);transition:all 0.2s ease;">← Portal / Switch Team</a>
+    <div class="topbar-tag" id="topbarTag">LOADING...</div>
+  </div>
+</div>
+
+<header>
+  <div class="eyebrow">department of artificial inteligence and machine learning</div>
+  <h3 class="presenting">PROUDLY PRESENTS</h3>
+  <h1>HACKRUSH<span>2K26</span></h1>
+  <p class="subtitle">
+WHERE IDEAS RACE AGAINST TIME</p>
+</header>
+
+<main>
+  <div class="stage-panel">
+
+    <div class="round-toggle" role="tablist" aria-label="Round switcher">
+      <button type="button" class="round-btn active" data-round="1">Problem Statement</button>
+      <button type="button" class="round-btn" data-round="2">Hazard/Challenges</button>
+    </div>
+    
+
+    <div class="stage-legend">
+      <div class="legend-item active">
+        <div class="li-label">Segments</div>
+        <div class="li-value" id="segmentLabel">Loading...</div>
       </div>
+      <div class="legend-item">
+        <div class="li-label">Range</div>
+        <div class="li-value" id="rangeLabel">Loading...</div>
+      </div>
+      <div class="legend-item">
+        <div class="li-label">Attempts</div>
+        <div class="li-value">1 per session</div>
+      </div>
+      <div class="legend-item">
+        <div class="li-label">Status</div>
+        <div class="li-value" id="statusLabel">Armed</div>
+      </div>
+    </div>
 
-      <section class="view active" id="participantView">
-        <h2>Participant Portal</h2>
-        <p>Enter your team details to continue to the wheel.</p>
-        <form id="teamForm">
-          <label>Team Name
-            <input id="teamName" required autocomplete="off" />
-          </label>
-          <label>Team Leader
-            <input id="teamLeader" required autocomplete="off" />
-          </label>
-          <button type="submit">Open Wheel</button>
-          <div class="hint" id="participantMessage">Your information is saved locally in this browser.</div>
-        </form>
-      </section>
-
-      <section class="view" id="adminView">
-        <h2>Admin Portal</h2>
-        <p>Use the admin credentials below to review participant submissions.</p>
-        <form id="adminForm">
-          <label>Username
-            <input id="adminUser" required autocomplete="username" />
-          </label>
-          <label>Password
-            <input id="adminPass" type="password" autocomplete="current-password" required />
-          </label>
-          <button type="submit">View Records</button>
-          <div class="hint" id="adminMessage">Default admin login: hackrush2k26 / hr2k26</div>
-        </form>
-
-        <div class="admin-panel" id="adminPanel">
-          <div class="summary-box">
-            <strong id="recordCount">0</strong> participant entries stored locally.
+    <!-- ROUND 1 WHEEL -->
+    <div class="round-view active" id="roundView1">
+      <div class="wheel-col">
+        <div class="wheel-stage">
+          <div class="glow-ring"></div>
+          <div class="pointer"></div>
+          <div class="wheel-frame">
+            <canvas id="wheelCanvas1" class="wheel-canvas" width="800" height="800"></canvas>
+            <div class="hub" id="hub1"></div>
+            <div class="center-result" id="centerResult1">
+              <div class="cr-label">Result</div>
+              <div class="cr-number" id="centerResultNumber1">—</div>
+              <div class="cr-text" id="centerResultText1">Spin the wheel to reveal the matching sentence.</div>
+            </div>
           </div>
-          <div class="record-list" id="recordList"></div>
         </div>
-      </section>
+
+        <div class="controls">
+          <button id="spinBtn1" class="spin-btn">Spin the Wheel</button>
+          <div class="spin-hint" id="spinHint1">You get one spin — make it count.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUND 2 WHEEL -->
+    <div class="round-view" id="roundView2">
+      <div class="wheel-col">
+        <div class="wheel-stage">
+          <div class="glow-ring"></div>
+          <div class="pointer"></div>
+          <div class="wheel-frame">
+            <canvas id="wheelCanvas2" class="wheel-canvas" width="800" height="800"></canvas>
+            <div class="hub" id="hub2"></div>
+            <div class="center-result" id="centerResult2">
+              <div class="cr-label">Result</div>
+              <div class="cr-number" id="centerResultNumber2">—</div>
+              <div class="cr-text" id="centerResultText2">Spin the wheel to reveal the matching sentence.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="spinBtn2" class="spin-btn">Spin the Wheel</button>
+          <div class="spin-hint" id="spinHint2">You get one spin — make it count.</div>
+        </div>
+      </div>
     </div>
   </div>
+</main>
 
-  <script>
-    const TEAM_KEY = 'Hackrush 2k26TeamName';
-    const LEADER_KEY = 'Hackrush 2k26TeamLeader';
-    const PARTICIPANTS_KEY = 'Hackrush 2k26Participants';
-    const CURRENT_PARTICIPANT_KEY = 'Hackrush 2k26CurrentParticipantId';
-    const ADMIN_USERNAME = 'hackrush2k26';
-    const ADMIN_PASSWORD = 'hr2k26';
+<footer>
+  <span>HACKRUSH 2K26</span>
+  <span class="dot"></span>
+  <span>WHERE IDEAS RACE AGAINST TIME</span>
+  <span class="dot"></span>
+  
+</footer>
 
-    const teamForm = document.getElementById('teamForm');
-    const teamNameInput = document.getElementById('teamName');
-    const teamLeaderInput = document.getElementById('teamLeader');
-    const participantMessage = document.getElementById('participantMessage');
+<script>
+  // spawn ambient rising dots
+  const bg = document.getElementById('bgStructures');
+  const dotCount = 22;
+  for(let i=0;i<dotCount;i++){
+    const dot = document.createElement('div');
+    dot.className = 'drift-dot';
+    dot.style.left = Math.random()*100 + '%';
+    dot.style.top = (60 + Math.random()*40) + '%';
+    const duration = 10 + Math.random()*14;
+    const delay = Math.random()*14;
+    dot.style.animationDuration = duration + 's';
+    dot.style.animationDelay = delay + 's';
+    bg.appendChild(dot);
+  }
 
-    const adminForm = document.getElementById('adminForm');
-    const adminUserInput = document.getElementById('adminUser');
-    const adminPassInput = document.getElementById('adminPass');
-    const adminMessage = document.getElementById('adminMessage');
-    const adminPanel = document.getElementById('adminPanel');
-    const recordCount = document.getElementById('recordCount');
-    const recordList = document.getElementById('recordList');
-    const toggleButtons = document.querySelectorAll('.toggle-btn');
-    const views = {
-      participant: document.getElementById('participantView'),
-      admin: document.getElementById('adminView')
+  const segmentLabel = document.getElementById('segmentLabel');
+  const rangeLabel = document.getElementById('rangeLabel');
+  const statusLabel = document.getElementById('statusLabel');
+  const topbarTag = document.getElementById('topbarTag');
+  const roundTag = document.getElementById('roundTag');
+
+  const supabaseUrl = 'https://ifxdzscodonobkjjcjgj.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmeGR6c2NvZG9ub2JrampjamdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwNzc3MTcsImV4cCI6MjEwMTY1MzcxN30.OfOl1PW0MbyJO8J1CDcGIFUGqpe6bc2aibgrlk4ToHk';
+  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  const DEFAULT_MESSAGES = [
+    'Golden victory — your idea shines brightest.',
+    'Power boost — your concept inspires the crowd.',
+    'Tech spark — innovation lights the stage.',
+    'Rising star — your team stands out.',
+    'Bold move — your solution impresses judges.',
+    'Creative edge — your approach is memorable.',
+    'Team synergy — collaboration is your strength.',
+    'Precision strike — your design is sharp.',
+    'Future-ready — your proposal is ahead of its time.',
+    'Champion mindset — you’re ready to win.'
+  ];
+
+  const RADIUS = 400;
+  const CENTER = 400;
+  const fillA = '#0b1f3f';
+  const fillB = '#122b52';
+  const neon = '#3fd9ff';
+
+// Round 1 stores result in wheel_result_1/result_sentence_1 (app_settings id=1)
+  // Round 2 stores result in wheel_result_2/result_sentence_2 (app_settings id=2)
+  // Fallback to the existing single-result columns if the per-round columns are absent.
+  const ROUND_RESULT_FIELDS = {
+    1: { number: 'wheel_result_1', sentence: 'result_sentence_1', fallbackNumber: 'wheel_result_number', fallbackSentence: 'result_sentence' },
+    2: { number: 'wheel_result_2', sentence: 'result_sentence_2', fallbackNumber: 'wheel_result_number', fallbackSentence: 'result_sentence' }
+  };
+  const SPIN_RESULT_STORAGE_PREFIX = 'Hackrush 2k26SpinResult';
+
+  const feedbackMessages = {
+    1: 'You already used your one spin for Round 1.',
+    2: 'You already used your one spin for Round 2.'
+  };
+
+  function getMessageForSegment(messages, number){
+    const index = Number(number) - 1;
+    return messages[index] || messages[0] || 'No message configured for this result.';
+  }
+
+  function getSpinResultStorageKey(round) {
+    // Participant ID keeps each registered participant's rounds separate.
+    return `${SPIN_RESULT_STORAGE_PREFIX}:${participantId || 'anonymous'}:${round}`;
+  }
+
+  function getLocallySavedResult(round) {
+    try {
+      const savedNumber = Number(localStorage.getItem(getSpinResultStorageKey(round)));
+      return Number.isInteger(savedNumber) && savedNumber > 0 ? savedNumber : null;
+    } catch (err) {
+      console.warn('localStorage not accessible', err);
+      return null;
+    }
+  }
+
+  function saveResultLocally(round, resultNumber) {
+    try {
+      localStorage.setItem(getSpinResultStorageKey(round), String(resultNumber));
+    } catch (err) {
+      console.warn('Unable to persist spin result locally', err);
+    }
+  }
+
+  function drawWheel(ctx, segments){
+    const segAngle = (2 * Math.PI) / segments;
+    ctx.clearRect(0,0,800,800);
+    for(let i=0;i<segments;i++){
+      const start = i * segAngle;
+      const end = start + segAngle;
+
+      ctx.beginPath();
+      ctx.moveTo(CENTER, CENTER);
+      ctx.arc(CENTER, CENTER, RADIUS, start, end);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 === 0 ? fillA : fillB;
+      ctx.fill();
+
+      ctx.strokeStyle = neon;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = neon;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(CENTER, CENTER);
+      ctx.lineTo(CENTER + RADIUS * Math.cos(start), CENTER + RADIUS * Math.sin(start));
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const mid = start + segAngle / 2;
+      const textRadius = RADIUS * 0.68;
+      const tx = CENTER + textRadius * Math.cos(mid);
+      const ty = CENTER + textRadius * Math.sin(mid);
+
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(mid + Math.PI/2);
+      ctx.fillStyle = '#eaf6ff';
+      const fontSize = segments > 18 ? 24 : 48;
+      ctx.font = `700 ${fontSize}px Segoe UI, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = neon;
+      ctx.shadowBlur = 14;
+      ctx.fillText(String(i+1), 0, 0);
+      ctx.restore();
+    }
+
+    ctx.beginPath();
+    ctx.arc(CENTER, CENTER, RADIUS - 2, 0, Math.PI*2);
+    ctx.strokeStyle = neon;
+    ctx.lineWidth = 4;
+    ctx.shadowColor = neon;
+    ctx.shadowBlur = 16;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Wheel state per round
+  const rounds = {
+    1: null,
+    2: null
+  };
+
+  function makeWheel(round){
+    return {
+      round: round,
+      messages: [...DEFAULT_MESSAGES],
+      segments: 10,
+      canvas: document.getElementById(`wheelCanvas${round}`),
+      ctx: document.getElementById(`wheelCanvas${round}`).getContext('2d'),
+      spinBtn: document.getElementById(`spinBtn${round}`),
+      hub: document.getElementById(`hub${round}`),
+      centerResult: document.getElementById(`centerResult${round}`),
+      centerResultNumber: document.getElementById(`centerResultNumber${round}`),
+      centerResultText: document.getElementById(`centerResultText${round}`),
+      spinHint: document.getElementById(`spinHint${round}`),
+      rotationDeg: 0,
+      spinning: false,
+      locked: false,
+      resultNumber: null
     };
+  }
 
-    function getParticipants() {
-      try {
-        return JSON.parse(localStorage.getItem(PARTICIPANTS_KEY) || '[]');
-      } catch (error) {
-        return [];
+  function lockWheelUsed(w, finalNumber){
+    w.locked = true;
+    w.spinBtn.disabled = true;
+    w.spinBtn.textContent = 'Spin Used';
+    w.spinHint.textContent = feedbackMessages[w.round];
+    w.spinHint.classList.add('used');
+    if(w.round === activeRound){
+      statusLabel.textContent = 'Complete';
+    }
+    if(finalNumber !== undefined){
+      w.resultNumber = finalNumber;
+      w.centerResultNumber.textContent = finalNumber;
+      const resultSentence = getMessageForSegment(w.messages, finalNumber);
+      w.centerResultText.textContent = resultSentence;
+      w.hub.classList.add('hidden');
+      w.centerResult.classList.add('show');
+    }
+  }
+
+  const LOCAL_PARTICIPANTS_KEY = 'Hackrush 2k26LocalParticipants';
+
+  function getLocalParticipantsList() {
+    try {
+      const raw = localStorage.getItem(LOCAL_PARTICIPANTS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function updateLocalParticipantRecord(pId, round, resultNumber, resultSentence) {
+    try {
+      const list = getLocalParticipantsList();
+      const idx = list.findIndex(p => p.id === pId);
+      if (idx >= 0) {
+        list[idx][`wheel_result_${round}`] = resultNumber;
+        list[idx][`result_sentence_${round}`] = resultSentence;
+        list[idx]['wheel_result_number'] = resultNumber;
+        list[idx]['result_sentence'] = resultSentence;
+        localStorage.setItem(LOCAL_PARTICIPANTS_KEY, JSON.stringify(list));
       }
+    } catch (e) {
+      console.warn('Could not update local participant record', e);
+    }
+  }
+
+  // Round result saving: uses separate columns per round,
+  // with local storage persistence and fallback to single-result columns if needed.
+  async function updateParticipantResult(round, resultNumber, resultSentence) {
+    // 1. Always record in local storage immediately
+    saveResultLocally(round, resultNumber);
+    if (participantId) {
+      updateLocalParticipantRecord(participantId, round, resultNumber, resultSentence);
     }
 
-    function saveParticipants(entries) {
-      localStorage.setItem(PARTICIPANTS_KEY, JSON.stringify(entries));
-    }
+    if (!participantId || participantId.startsWith('local_')) return;
 
-    function setParticipantMessage(text, isError = false) {
-      participantMessage.textContent = text;
-      participantMessage.className = 'hint' + (isError ? ' error' : ' success');
-    }
+    // 2. Attempt remote Supabase update safely
+    try {
+      const fields = ROUND_RESULT_FIELDS[round];
+      const payload = {};
+      payload[fields.number] = resultNumber;
+      payload[fields.sentence] = resultSentence;
 
-    function setAdminMessage(text, isError = false) {
-      adminMessage.textContent = text;
-      adminMessage.className = 'hint' + (isError ? ' error' : ' success');
-    }
+      const { error } = await supabaseClient
+        .from('participants')
+        .update(payload)
+        .eq('id', participantId);
 
-    function renderAdminRecords() {
-      const entries = getParticipants();
-      recordCount.textContent = entries.length;
-
-      if (!entries.length) {
-        recordList.innerHTML = '<div class="record-empty">No participant submissions yet.</div>';
-        return;
+      // If per-round columns don't exist, fall back to single-result columns.
+      if (error && (error.message || '').toLowerCase().includes('column')) {
+        const fallbackPayload = {};
+        fallbackPayload[fields.fallbackNumber] = resultNumber;
+        fallbackPayload[fields.fallbackSentence] = resultSentence;
+        await supabaseClient
+          .from('participants')
+          .update(fallbackPayload)
+          .eq('id', participantId);
       }
-
-      recordList.innerHTML = entries.map((entry) => {
-        return `
-          <div class="record-item">
-            <h4>${entry.teamName}</h4>
-            <p><strong>Leader:</strong> ${entry.teamLeader}</p>
-            <p><strong>Wheel Result:</strong> ${entry.wheelResultNumber ? entry.wheelResultNumber : 'Not spun yet'}</p>
-            <p><strong>Result Sentence:</strong> ${entry.resultSentence || 'No result sentence yet.'}</p>
-            <p><strong>Saved:</strong> ${entry.submittedAt}</p>
-          </div>
-        `;
-      }).join('');
+    } catch (err) {
+      console.warn('Supabase update failed, saved locally:', err);
     }
+  }
 
-    function loadSavedTeamInfo() {
-      const savedTeam = localStorage.getItem(TEAM_KEY);
-      const savedLeader = localStorage.getItem(LEADER_KEY);
-      if (savedTeam) teamNameInput.value = savedTeam;
-      if (savedLeader) teamLeaderInput.value = savedLeader;
-    }
+  async function loadWheelSettings(w) {
+    const settingsId = w.round; // Round 1 -> id 1, Round 2 -> id 2
 
-    function switchView(viewName) {
-      toggleButtons.forEach((button) => {
-        button.classList.toggle('active', button.dataset.view === viewName);
-      });
-
-      Object.entries(views).forEach(([name, element]) => {
-        element.classList.toggle('active', name === viewName);
-      });
-    }
-
-    loadSavedTeamInfo();
-    switchView('participant');
-
-    toggleButtons.forEach((button) => {
-      button.addEventListener('click', () => switchView(button.dataset.view));
-    });
-
-    teamForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const team = teamNameInput.value.trim();
-      const leader = teamLeaderInput.value.trim();
-
-      if (!team || !leader) {
-        setParticipantMessage('Please fill in both team details.', true);
-        return;
+    // Check local storage custom sentences first
+    try {
+      const localSentences = localStorage.getItem(`Hackrush 2k26Sentences_${settingsId}`);
+      if (localSentences) {
+        const parsed = JSON.parse(localSentences);
+        if (Array.isArray(parsed) && parsed.length >= 10) {
+          w.messages = parsed;
+        }
       }
+    } catch (e) {}
 
-      localStorage.setItem(TEAM_KEY, team);
-      localStorage.setItem(LEADER_KEY, leader);
-
-      const entries = getParticipants();
-      const participantId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      entries.unshift({
-        id: participantId,
-        teamName: team,
-        teamLeader: leader,
-        submittedAt: new Date().toLocaleString(),
-        wheelResultNumber: '',
-        resultSentence: ''
-      });
-      saveParticipants(entries.slice(0, 50));
-      localStorage.setItem(CURRENT_PARTICIPANT_KEY, participantId);
-
-      setParticipantMessage('Saved locally. Opening the wheel now...');
-      setTimeout(() => {
-        window.location.href = 'INDEX.HTML';
-      }, 500);
-    });
-
-    adminForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const username = adminUserInput.value.trim();
-      const password = adminPassInput.value;
-
-      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        window.location.href = 'admin-portal.html';
+    try {
+      const { data, error } = await supabaseClient.from('app_settings').select('messages').eq('id', settingsId).single();
+      if (!error && data && data.messages && Array.isArray(data.messages) && data.messages.length >= 10) {
+        w.messages = data.messages;
       } else {
-        adminPanel.classList.remove('active');
-        setAdminMessage('Invalid username or password.', true);
+        console.warn(`app_settings id=${settingsId} fetch issue, using defaults/local. Error:`, error);
       }
+    } catch (err) {
+      console.warn(`Supabase fetch issue for settings id=${settingsId}, using defaults/local:`, err);
+    }
+
+    w.segments = w.messages.length;
+    if (w.segments < 10) w.segments = 10;
+    drawWheel(w.ctx, w.segments);
+
+    if (w.locked && w.resultNumber !== null) {
+      w.centerResultText.textContent = getMessageForSegment(w.messages, w.resultNumber);
+    }
+
+    if (w.round === activeRound) {
+      updateLegend(w);
+    }
+  }
+
+  function updateLegend(w){
+    segmentLabel.textContent = `${w.segments} divisions`;
+    rangeLabel.textContent = `1 – ${w.segments}`;
+    topbarTag.textContent = `ROUND ${w.round} · ${w.segments}-SEGMENT · SINGLE DRAW`;
+    roundTag.textContent = `ROUND ${w.round}`;
+    statusLabel.textContent = w.locked ? 'Complete' : 'Armed';
+  }
+
+  function bindWheel(w){
+    w.spinBtn.addEventListener('click', async () => {
+      if(w.spinning || w.locked) return;
+
+      // Only allow spinning the active round's wheel
+      if(w.round !== activeRound) return;
+
+      // For Round 2, verify if admin has enabled access
+      if(w.round === 2) {
+        w.spinBtn.disabled = true;
+        let allowed = localStorage.getItem('Hackrush 2k26Round2Allowed') === 'true';
+        try {
+          const { data, error } = await supabaseClient.from('app_settings').select('messages').eq('id', 3).single();
+          if (!error && data && data.messages) {
+            allowed = data.messages[0] === 'true';
+          }
+        } catch (err) {
+          // offline fallback uses allowed from localStorage
+        }
+        if (!allowed) {
+          alert('Round 2 is not yet allowed by the Admin.');
+          w.spinBtn.disabled = false;
+          return;
+        }
+      }
+
+      w.spinning = true;
+      w.spinBtn.disabled = true;
+      if(statusLabel) statusLabel.textContent = 'Spinning';
+
+      let winningNumber;
+      if (w.round === 1) {
+        // Round 1: make sure each participant gets a different result number
+        const taken = new Set();
+
+        // Check local storage records
+        try {
+          const localList = getLocalParticipantsList();
+          localList.forEach(p => {
+            if (p.id !== participantId) {
+              const val = p.wheel_result_1 !== null && p.wheel_result_1 !== undefined ? p.wheel_result_1 : p.wheel_result_number;
+              if (val !== null && val !== undefined) taken.add(Number(val));
+            }
+          });
+        } catch (e) {}
+
+        // Check Supabase records if online
+        try {
+          const { data, error } = await supabaseClient.from('participants').select('id, wheel_result_1, wheel_result_number');
+          if (data && !error) {
+            data.forEach(p => {
+              if (p.id !== participantId) {
+                const val = p.wheel_result_1 !== null ? p.wheel_result_1 : p.wheel_result_number;
+                if (val !== null && val !== undefined) {
+                  taken.add(Number(val));
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('Supabase uniqueness check skipped (offline), using local records:', err);
+        }
+
+        const available = [];
+        for (let i = 1; i <= w.segments; i++) {
+          if (!taken.has(i)) {
+            available.push(i);
+          }
+        }
+        if (available.length > 0) {
+          const randIndex = Math.floor(Math.random() * available.length);
+          winningNumber = available[randIndex];
+        } else {
+          winningNumber = Math.floor(Math.random() * w.segments) + 1;
+        }
+      } else {
+        // Round 2: standard random selection
+        winningNumber = Math.floor(Math.random() * w.segments) + 1;
+      }
+
+      const resultSentence = getMessageForSegment(w.messages, winningNumber);
+
+      // Persist before the animation starts, so a reload cannot grant another spin.
+      saveResultLocally(w.round, winningNumber);
+
+      // Calculate exact rotation target
+      const extraSpins = 6 + Math.floor(Math.random()*3); // 6-8 full turns
+      const segmentAngleDeg = 360 / w.segments;
+      const targetAngle = 270 - (winningNumber - 0.5) * segmentAngleDeg;
+      const targetNormalized = ((targetAngle % 360) + 360) % 360;
+      
+      const currentNormalized = ((w.rotationDeg % 360) + 360) % 360;
+      let diff = targetNormalized - currentNormalized;
+      if (diff <= 0) {
+        diff += 360;
+      }
+      const totalRotation = w.rotationDeg + extraSpins * 360 + diff;
+
+      w.canvas.style.transform = `rotate(${totalRotation}deg)`;
+      w.rotationDeg = totalRotation;
+
+      setTimeout(async () => {
+        try {
+          await updateParticipantResult(w.round, winningNumber, resultSentence);
+        } catch (e) {
+          console.warn('Error saving participant result:', e);
+        } finally {
+          w.spinning = false;
+          lockWheelUsed(w, winningNumber);
+        }
+      }, 5600);
     });
-  </script>
+  }
+
+  // Restore previous result for a round from Supabase or localStorage
+  async function checkParticipantStatus(w) {
+    const localResult = getLocallySavedResult(w.round);
+    if (localResult !== null) {
+      lockWheelUsed(w, localResult);
+    }
+
+    if (!participantId || participantId.startsWith('local_')) return;
+    try {
+      const { data } = await supabaseClient.from('participants').select('*').eq('id', participantId).single();
+      if (data) {
+        const fields = ROUND_RESULT_FIELDS[w.round];
+        const savedNumber = data[fields.number];
+        if (savedNumber !== null && savedNumber !== undefined) {
+          saveResultLocally(w.round, savedNumber);
+          lockWheelUsed(w, savedNumber);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not check participant status from Supabase, used local storage:', err);
+    }
+  }
+
+  let activeRound = 1;
+
+  const roundButtons = document.querySelectorAll('.round-btn');
+  const roundViews = {
+    1: document.getElementById('roundView1'),
+    2: document.getElementById('roundView2')
+  };
+
+  async function switchRound(round){
+    activeRound = round;
+    roundButtons.forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.round) === round);
+    });
+    roundViews[1].classList.toggle('active', round === 1);
+    roundViews[2].classList.toggle('active', round === 2);
+
+    const w = rounds[round];
+    if (w) {
+      updateLegend(w);
+      if (statusLabel) statusLabel.textContent = w.locked ? 'Complete' : (w.spinning ? 'Spinning' : 'Armed');
+      
+      if (round === 2 && !w.locked && !w.spinning) {
+        w.spinBtn.disabled = true;
+        w.spinHint.textContent = 'Checking authorization...';
+        let allowed = localStorage.getItem('Hackrush 2k26Round2Allowed') === 'true';
+        try {
+          const { data, error } = await supabaseClient.from('app_settings').select('messages').eq('id', 3).single();
+          if (!error && data && data.messages) {
+            allowed = data.messages[0] === 'true';
+          }
+        } catch (err) {
+          // offline fallback uses allowed from localStorage
+        }
+        if (allowed) {
+          w.spinBtn.disabled = false;
+          w.spinHint.textContent = 'You get one spin — make it count.';
+        } else {
+          w.spinBtn.disabled = true;
+          w.spinHint.textContent = 'Round 2 is not yet allowed by the Admin.';
+        }
+      }
+    }
+  }
+
+  roundButtons.forEach((btn) => {
+    btn.addEventListener('click', () => switchRound(Number(btn.dataset.round)));
+  });
+
+  // Initialize both wheels
+  rounds[1] = makeWheel(1);
+  rounds[2] = makeWheel(2);
+  bindWheel(rounds[1]);
+  bindWheel(rounds[2]);
+
+  loadWheelSettings(rounds[1]);
+  loadWheelSettings(rounds[2]);
+  checkParticipantStatus(rounds[1]);
+  checkParticipantStatus(rounds[2]);
+</script>
+
 </body>
 </html>
